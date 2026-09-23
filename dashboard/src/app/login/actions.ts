@@ -5,9 +5,9 @@ import { redirect } from 'next/navigation'
 
 // Contraseñas estáticas (puedes agregar o quitar las que quieras)
 const VALID_PASSWORDS = [
-  'admin2026',    // Administrador principal
-  'equipo1',      // Para el primer equipo
-  'wiston2026'    // Acceso general
+  'abunda2026',
+  'abunda2027',
+  'abunda1'
 ];
 
 export async function loginAction(prevState: any, formData: FormData) {

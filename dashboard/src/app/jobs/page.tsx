@@ -198,7 +198,7 @@ export default function JobsPage() {
               <textarea
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Una búsqueda por línea. Ejemplo:\ndaycare in Miami FL\nlaundromat near 77060"
+                placeholder={"Una búsqueda por línea. Ejemplo:\ndaycare in Miami FL\nlaundromat near 77060"}
                 className="w-full h-48 p-4 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none font-mono text-sm leading-relaxed"
               />
             </div>
@@ -216,7 +216,7 @@ export default function JobsPage() {
               <textarea
                 value={zipsInput}
                 onChange={(e) => setZipsInput(e.target.value)}
-                placeholder="Pega un ZIP por línea:\n33101\n33109\n77060"
+                placeholder={"Pega un ZIP por línea:\n33101\n33109\n77060"}
                 className="w-full h-48 p-4 border border-slate-300 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none font-mono text-sm leading-relaxed"
               />
             </div>
@@ -433,23 +433,23 @@ export default function JobsPage() {
         </summary>
         <div className="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-600 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="font-medium text-slate-800 mb-1">🏢 Identidad</p>
+            <p className="font-medium text-slate-800 mb-1">Identidad</p>
             <p>Nombre, Categoría, Dirección, Ciudad, Estado, Código Postal</p>
           </div>
           <div>
-            <p className="font-medium text-slate-800 mb-1">📞 Contacto</p>
+            <p className="font-medium text-slate-800 mb-1">Contacto</p>
             <p>Teléfono, Email (del sitio web), Sitio Web</p>
           </div>
           <div>
-            <p className="font-medium text-slate-800 mb-1">🕐 Horarios</p>
+            <p className="font-medium text-slate-800 mb-1">Horarios</p>
             <p>Apertura, Cierre, Días Abierto</p>
           </div>
           <div>
-            <p className="font-medium text-slate-800 mb-1">⭐ Reputación</p>
+            <p className="font-medium text-slate-800 mb-1">Reputación</p>
             <p>Calificación, Total Reseñas, 1 Reseña Positiva, 2 Reseñas Negativas</p>
           </div>
           <div className="md:col-span-2">
-            <p className="font-medium text-slate-800 mb-1">🏷️ Atributos Adicionales</p>
+            <p className="font-medium text-slate-800 mb-1">Atributos Adicionales</p>
             <p>Accesibilidad, Identidad del negocio, Servicios, Métodos de pago, Reclamado, URL de Google Maps</p>
           </div>
         </div>

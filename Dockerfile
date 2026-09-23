@@ -28,7 +28,7 @@ WORKDIR /app/backend
 # Crear entorno virtual con pip incluido
 RUN python3 -m venv --system-site-packages venv
 ENV PATH="/app/backend/venv/bin:$PATH"
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 # Instalar binarios de chromium
 RUN playwright install chromium
 

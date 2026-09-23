@@ -1,0 +1,30 @@
+'use server'
+
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+
+// Contraseñas estáticas (puedes agregar o quitar las que quieras)
+const VALID_PASSWORDS = [
+  'admin2026',    // Administrador principal
+  'equipo1',      // Para el primer equipo
+  'wiston2026'    // Acceso general
+];
+
+export async function loginAction(prevState: any, formData: FormData) {
+  const password = formData.get('password') as string;
+  
+  if (VALID_PASSWORDS.includes(password)) {
+    const cookieStore = await cookies();
+    cookieStore.set('scrapeflow_auth', 'authenticated', { 
+      httpOnly: true, 
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 60 * 60 * 24 * 30, // 30 días
+      path: '/'
+    });
+    
+    // Redirigir al dashboard
+    redirect('/');
+  }
+  
+  return { error: 'Contraseña incorrecta' };
+}

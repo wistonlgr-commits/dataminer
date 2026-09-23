@@ -1,0 +1,16 @@
+{
+  "unique_key": "https://www.google.com/maps/place/museo+nacional+del+prado/@40.4137818,-3.6921271,17z",
+  "url": "https://www.google.com/maps/place/Museo+Nacional+del+Prado/@40.4137818,-3.6921271,17z",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "state": 4
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": "https://www.google.com/maps/place/Museo+Nacional+del+Prado/@40.4137818,-3.6921271,17z",
+  "handled_at": "2026-09-01 20:39:14.988466+00:00"
+}

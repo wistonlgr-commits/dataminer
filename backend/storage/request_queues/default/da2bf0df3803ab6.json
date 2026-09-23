@@ -1,0 +1,16 @@
+{
+  "unique_key": "https://www.google.com/maps/place/el+retiro+park/@40.4152606,-3.6845003,17z",
+  "url": "https://www.google.com/maps/place/El+Retiro+Park/@40.4152606,-3.6845003,17z",
+  "method": "GET",
+  "payload": null,
+  "headers": {},
+  "user_data": {
+    "__crawlee": {
+      "state": 4
+    }
+  },
+  "retry_count": 0,
+  "no_retry": false,
+  "loaded_url": "https://www.google.com/maps/place/El+Retiro+Park/@40.4152606,-3.6845003,17z",
+  "handled_at": "2026-09-01 20:39:14.968744+00:00"
+}

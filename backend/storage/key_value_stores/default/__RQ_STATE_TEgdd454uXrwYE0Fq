@@ -1,0 +1,11 @@
+{
+  "sequence_counter": 2,
+  "forefront_sequence_counter": 0,
+  "forefront_requests": {},
+  "regular_requests": {},
+  "in_progress_requests": [],
+  "handled_requests": [
+    "https://www.google.com/maps/place/museo+nacional+del+prado/@40.4137818,-3.6921271,17z",
+    "https://www.google.com/maps/place/el+retiro+park/@40.4152606,-3.6845003,17z"
+  ]
+}

@@ -1,6 +1,6 @@
 FROM node:20-bookworm
 
-# Instalar Python 3 (3.11 por defecto) y dependencias del sistema requeridas por Playwright
+# Instalar Python 3 y dependencias del sistema requeridas por Playwright
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-venv \
@@ -19,20 +19,16 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libasound2 \
     fonts-liberation \
-    libappindicator3-1 \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
-
-# Establecer directorio de trabajo raíz
-WORKDIR /app
 
 # ---- CONFIGURAR BACKEND PYTHON ----
 COPY backend/ /app/backend/
 WORKDIR /app/backend
-# Crear entorno virtual y usar python3 en lugar de python
-RUN python3 -m venv venv
+# Crear entorno virtual con pip incluido
+RUN python3 -m venv --system-site-packages venv
 ENV PATH="/app/backend/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 # Instalar binarios de chromium
 RUN playwright install chromium
 

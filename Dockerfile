@@ -1,9 +1,9 @@
-FROM node:20-bullseye
+FROM node:20-bookworm
 
-# Instalar Python 3.11 y dependencias del sistema requeridas por Playwright
+# Instalar Python 3 (3.11 por defecto) y dependencias del sistema requeridas por Playwright
 RUN apt-get update && apt-get install -y \
-    python3.11 \
-    python3.11-venv \
+    python3 \
+    python3-venv \
     python3-pip \
     libnss3 \
     libnspr4 \

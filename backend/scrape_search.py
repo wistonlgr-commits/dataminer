@@ -6,7 +6,20 @@ import os
 import random
 import pandas as pd
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
+
+# Compatibility shim for different versions of playwright-stealth
+try:
+    from playwright_stealth import stealth_async
+except ImportError:
+    try:
+        from playwright_stealth import Stealth
+        _stealth_instance = Stealth()
+        async def stealth_async(page):
+            await _stealth_instance.apply_stealth(page)
+    except (ImportError, AttributeError):
+        from playwright_stealth import stealth_sync
+        async def stealth_async(page):
+            stealth_sync(page)
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 

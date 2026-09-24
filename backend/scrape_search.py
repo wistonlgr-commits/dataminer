@@ -12,14 +12,12 @@ try:
     from playwright_stealth import stealth_async
 except ImportError:
     try:
-        from playwright_stealth import Stealth
-        _stealth_instance = Stealth()
-        async def stealth_async(page):
-            await _stealth_instance.apply_stealth(page)
-    except (ImportError, AttributeError):
         from playwright_stealth import stealth_sync
         async def stealth_async(page):
             stealth_sync(page)
+    except ImportError:
+        async def stealth_async(page):
+            pass
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
@@ -236,17 +234,21 @@ async def main():
                 except:
                     continue
             
-            # Consentimiento
-            if "consent" in page.url:
-                try:
-                    btn = page.get_by_role("button").filter(has_text=re.compile(r'reject all|accept all', re.IGNORECASE)).first
-                    if await btn.count() > 0:
-                        await btn.click()
-                        await human_delay(page, 2000, 4000)
-                except: pass
+            # Consentimiento (puede estar en la URL o como modal superpuesto)
+            try:
+                btn = page.get_by_role("button").filter(has_text=re.compile(r'reject all|accept all|aceptar todo|rechazar todo', re.IGNORECASE)).first
+                if await btn.count() > 0:
+                    await btn.click(force=True)
+                    await human_delay(page, 2000, 4000)
+            except: pass
             
-            try: await page.wait_for_selector('a[href*="/maps/place/"]', timeout=10000)
-            except: continue
+            try: 
+                # wait for selector but state='attached' in case they are slightly covered
+                await page.wait_for_selector('a[href*="/maps/place/"]', timeout=15000, state='attached')
+            except:
+                print(f"[LOG] ⚠️ No se encontraron resultados (tiempo de espera agotado) para: {q}")
+                sys.stdout.flush()
+                continue
             
             print("[LOG] Scroll profundo...")
             sys.stdout.flush()

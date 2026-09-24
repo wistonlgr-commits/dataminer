@@ -6,6 +6,9 @@ export async function GET(req: NextRequest) {
   const backendDir = path.resolve(process.cwd(), "../backend");
   const jobsDir = path.join(backendDir, ".jobs");
 
+  const userCookie = req.cookies.get('scrapeflow_auth');
+  const user = userCookie?.value || 'unknown';
+
   if (!fs.existsSync(jobsDir)) {
     return NextResponse.json({ jobs: [] });
   }
@@ -17,6 +20,11 @@ export async function GET(req: NextRequest) {
     try {
       const content = fs.readFileSync(path.join(jobsDir, file), 'utf-8');
       const job = JSON.parse(content);
+      
+      // Solo mostrar trabajos del usuario actual (si no tiene usuario, asumimos que es antiguo y no lo mostramos, o lo mostramos para retrocompatibilidad, pero mejor ocultarlo)
+      if (job.user !== user) {
+        continue;
+      }
       
       // Calculate file modification time to sort them
       const stats = fs.statSync(path.join(jobsDir, file));

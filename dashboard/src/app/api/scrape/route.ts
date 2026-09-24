@@ -31,8 +31,13 @@ export async function POST(req: NextRequest) {
     
     const jobFile = path.join(jobsDir, `${jobId}.json`);
     
+    // Obtener el usuario actual
+    const userCookie = req.cookies.get('scrapeflow_auth');
+    const user = userCookie?.value || 'unknown';
+    
     // Initial Job State
     const jobState = {
+      user: user,
       status: "running",
       progress: 0,
       found: 0,

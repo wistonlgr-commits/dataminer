@@ -249,12 +249,19 @@ async def main():
             
             try: 
                 # wait for selector but state='attached' in case they are slightly covered
-                await page.wait_for_selector('a[href*="/maps/place/"]', timeout=15000, state='attached')
+                await page.wait_for_selector('a[href*="/maps/place/"]', timeout=30000, state='attached')
             except:
                 curr_url = page.url
                 curr_title = await page.title()
                 print(f"[LOG] ⚠️ No se encontraron resultados (tiempo de espera agotado) para: {q}")
                 print(f"[LOG] ⚠️ URL actual: {curr_url} | Título: {curr_title}")
+                try:
+                    # Guardar screenshot para depurar
+                    debug_path = os.path.join(os.path.dirname(__file__), "..", "dashboard", "public", "debug.png")
+                    await page.screenshot(path=debug_path, full_page=True)
+                    print(f"[LOG] 📸 Captura de pantalla guardada para depuración: /debug.png")
+                except Exception as e:
+                    print(f"[LOG] ❌ Error guardando captura: {e}")
                 sys.stdout.flush()
                 continue
             

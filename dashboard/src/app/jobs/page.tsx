@@ -73,11 +73,15 @@ export default function JobsPage() {
     }
     if (activeTab === "zona") {
       if (!businessType) return [];
-      const selected = foundZips.filter(z => selectedZips.has(z.zip_code));
-      return selected.map(z => `${businessType} in ${z.zip_code} ${z.city}, ${z.state}`);
+      const cities = zoneInput.split('\n').map(c => c.trim()).filter(c => c.length > 0);
+      if (cities.length === 0) {
+        if (zoneState) return [`${businessType} en ${zoneState}`];
+        return [];
+      }
+      return cities.map(c => `${businessType} en ${c}${zoneState ? `, ${zoneState}` : ''}`);
     }
     return [];
-  }, [activeTab, query, businessType, zipsInput, foundZips, selectedZips]);
+  }, [activeTab, query, businessType, zipsInput, zoneInput, zoneState]);
 
   const timePerQuery = precision === 1 ? 30 : precision === 2 ? 60 : 120;
   const estimatedSeconds = finalQueries.length * timePerQuery;
@@ -224,143 +228,47 @@ export default function JobsPage() {
 
           {activeTab === "zona" && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                <div className="col-span-1">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Estado</label>
-                  <select 
-                    value={zoneState} 
-                    onChange={e => setZoneState(e.target.value)}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="FL">Florida (FL)</option>
-                    <option value="TX">Texas (TX)</option>
-                    <option value="CA">California (CA)</option>
-                    <option value="NY">New York (NY)</option>
-                    <option value="NJ">New Jersey (NJ)</option>
-                    {/* Más estados podrían agregarse aquí */}
-                  </select>
-                </div>
-                <div className="col-span-1">
-                  <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Buscar por</label>
-                  <select 
-                    value={zoneType} 
-                    onChange={e => setZoneType(e.target.value as any)}
-                    className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="city">Ciudad</option>
-                    <option value="county">Condado</option>
-                    <option value="state">Todo el Estado</option>
-                  </select>
-                </div>
-                <div className="col-span-2 flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Nombre</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-lg border border-slate-200">
+                <div className="col-span-1 space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">País, Estado o Provincia (Opcional)</label>
+                    <p className="text-xs text-slate-500 mb-2">Esto se añadirá al final de cada ciudad. Ej: "España", "Aragua, Venezuela", "FL".</p>
                     <input 
                       type="text" 
-                      value={zoneInput}
-                      onChange={e => setZoneInput(e.target.value)}
-                      disabled={zoneType === "state"}
-                      placeholder={zoneType === "city" ? "Ej: Miami" : zoneType === "county" ? "Ej: Miami-Dade" : ""}
-                      className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                      value={zoneState} 
+                      onChange={e => setZoneState(e.target.value)}
+                      placeholder="Ej: Aragua, Venezuela"
+                      className="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
-                  <button 
-                    onClick={handleSearchZone}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors h-[46px] flex items-center"
-                  >
-                    <Search className="w-4 h-4 mr-2" /> Buscar
-                  </button>
+                  <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg">
+                    <h4 className="text-sm font-semibold text-indigo-800 mb-1">💡 ¿Cómo funciona?</h4>
+                    <p className="text-xs text-indigo-700">
+                      El sistema cruzará el <span className="font-bold">tipo de negocio</span> con cada una de las <span className="font-bold">ciudades</span> que escribas aquí, agregando la ubicación general al final de cada una.
+                      <br/><br/>
+                      Ejemplo generado:<br/>
+                      <span className="font-mono bg-indigo-100 px-1 py-0.5 rounded text-indigo-900">{businessType || "daycare"} en Maracay, {zoneState || "Aragua"}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="col-span-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Lista de Ciudades o Barrios</label>
+                  <p className="text-xs text-slate-500 mb-2">Escribe una ciudad por línea.</p>
+                  <textarea 
+                    value={zoneInput}
+                    onChange={e => setZoneInput(e.target.value)}
+                    placeholder={"Maracay\nTurmero\nCagua\nValencia"}
+                    className="w-full h-48 p-4 border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-mono text-sm leading-relaxed"
+                  />
                 </div>
               </div>
-
-              {foundZips.length > 0 && (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <div className="bg-white p-4 border-b border-slate-200 flex justify-between items-center flex-wrap gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-indigo-100 text-indigo-700 p-2 rounded-lg">
-                        <MapPin className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{foundZips.length} códigos postales encontrados</h3>
-                        <p className="text-sm text-slate-500">Seleccionados: <span className="font-medium text-indigo-600">{selectedZips.size}</span></p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 text-sm">
-                      <button onClick={() => handleToggleAll(true)} className="px-3 py-1.5 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md font-medium">Seleccionar todos</button>
-                      <button onClick={() => handleToggleAll(false)} className="px-3 py-1.5 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md font-medium">Ninguno</button>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-slate-50 p-2 border-b border-slate-200">
-                    <input 
-                      type="text" 
-                      placeholder="Filtrar resultados por ciudad..." 
-                      value={filterCity}
-                      onChange={e => setFilterCity(e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded bg-white text-sm outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div className="h-64 overflow-y-auto bg-white p-4 space-y-6">
-                    {Object.entries(groupedZips).map(([city, zips]) => (
-                      <div key={city}>
-                        <div className="flex justify-between items-center mb-2 border-b border-slate-100 pb-1">
-                          <h4 className="font-semibold text-slate-700 text-sm flex items-center">
-                            <span className="w-1.5 h-4 bg-indigo-500 rounded-full mr-2"></span>
-                            {city} <span className="ml-2 text-xs font-normal text-slate-400">({zips.length} ZIPs)</span>
-                          </h4>
-                          <button 
-                            className="text-xs text-indigo-600 hover:underline"
-                            onClick={() => {
-                              const allInCity = zips.map(z => z.zip_code);
-                              const anyUnselected = allInCity.some(z => !selectedZips.has(z));
-                              const newSet = new Set(selectedZips);
-                              if (anyUnselected) {
-                                allInCity.forEach(z => newSet.add(z));
-                              } else {
-                                allInCity.forEach(z => newSet.delete(z));
-                              }
-                              setSelectedZips(newSet);
-                            }}
-                          >
-                            Toggle ciudad
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                          {zips.map((z) => {
-                            // Fix string zips formatting if less than 5 chars
-                            const zipStr = String(z.zip_code).padStart(5, '0');
-                            return (
-                              <label key={z.zip_code} className={`flex items-center p-2 rounded border cursor-pointer transition-colors ${selectedZips.has(z.zip_code) ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-200 hover:bg-slate-50'}`}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={selectedZips.has(z.zip_code)}
-                                  onChange={() => handleToggleZip(z.zip_code)}
-                                  className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                                />
-                                <div className="ml-2">
-                                  <span className="text-sm font-medium text-slate-900 block">{zipStr}</span>
-                                  <span className="text-[10px] text-slate-500 block truncate" title={z.county}>{z.county}</span>
-                                </div>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    {Object.keys(groupedZips).length === 0 && (
-                      <p className="text-center text-slate-500 py-8">No hay resultados para este filtro.</p>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
           {/* Precisión */}
           <div className="pt-4 border-t border-slate-200">
             <label className="block text-sm font-semibold text-slate-700 mb-4">Profundidad de Extracción (Scroll)</label>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                 { val: 1, label: "Rápida", desc: "~30s / zona" },
                 { val: 2, label: "Equilibrada", desc: "~1m / zona" },

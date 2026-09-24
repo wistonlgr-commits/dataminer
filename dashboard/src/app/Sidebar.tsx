@@ -35,16 +35,16 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile Header (Only visible on small screens) */}
-      <div className="md:hidden h-14 flex items-center justify-center bg-[#0A0E1A] border-b border-gray-800 shrink-0 shadow-sm z-10">
-        <img src="https://vissionsolutions.com/wp-content/uploads/2024/12/moon-1.png" alt="Vission" className="w-6 h-6 mr-2 object-contain" />
-        <span className="text-lg font-bold text-white tracking-tight">ScrapeFlow</span>
+      <div className="md:hidden h-14 flex items-center justify-center bg-white border-b border-slate-200 shrink-0 shadow-sm z-10">
+        <Database className="w-5 h-5 text-indigo-600 mr-2" />
+        <span className="text-lg font-bold text-slate-800 tracking-tight">ScrapeFlow</span>
       </div>
 
       {/* Sidebar / Bottom Nav */}
-      <aside className="fixed bottom-0 left-0 w-full bg-[#0A0E1A] border-t border-gray-800 flex flex-row md:relative md:flex-col md:w-64 md:border-t-0 md:border-r md:shadow-lg z-20">
-        <div className="hidden md:flex h-20 items-center px-6 border-b border-gray-800">
-          <img src="https://vissionsolutions.com/wp-content/uploads/2024/12/moon-1.png" alt="Vission Solutions" className="w-8 h-8 mr-3 object-contain filter drop-shadow-[0_0_8px_rgba(37,99,235,0.8)]" />
-          <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent tracking-tight">ScrapeFlow</span>
+      <aside className="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 flex flex-row md:relative md:flex-col md:w-64 md:border-t-0 md:border-r md:shadow-sm z-20">
+        <div className="hidden md:flex h-16 items-center px-6 border-b border-slate-100">
+          <Database className="w-6 h-6 text-indigo-600 mr-2" />
+          <span className="text-xl font-bold text-slate-800 tracking-tight">ScrapeFlow</span>
         </div>
         
         <nav className="flex-1 md:overflow-y-auto w-full md:py-6">
@@ -55,10 +55,10 @@ export function Sidebar() {
                 <li key={item.name} className="flex-1 md:flex-none h-full md:h-auto">
                   <Link 
                     href={item.href} 
-                    className={`flex flex-col md:flex-row items-center justify-center md:justify-between h-full px-2 py-1 md:px-4 md:py-3 text-[10px] md:text-sm font-medium transition-all ${
+                    className={`flex flex-col md:flex-row items-center justify-center md:justify-between h-full px-2 py-1 md:px-3 md:py-2.5 text-[10px] md:text-sm font-medium transition-all ${
                       isActive 
-                        ? "text-white md:bg-[#161B22] border-t-2 md:border-t-0 border-blue-500 md:border-l-2 md:border-blue-500 md:rounded-r-lg shadow-[inset_0_0_12px_rgba(37,99,235,0.1)]" 
-                        : "text-gray-400 hover:text-white md:hover:bg-[#161B22] border-t-2 md:border-t-0 border-transparent md:border-l-2 md:rounded-r-lg"
+                        ? "text-indigo-700 md:bg-indigo-50 border-t-2 md:border-t-0 border-indigo-600 md:rounded-lg" 
+                        : "text-slate-500 hover:text-indigo-600 md:hover:bg-indigo-50 border-t-2 md:border-t-0 border-transparent md:rounded-lg"
                     }`}
                   >
                     <div className="flex flex-col md:flex-row items-center gap-1 md:gap-0">

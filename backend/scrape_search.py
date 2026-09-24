@@ -234,11 +234,16 @@ async def main():
                 except:
                     continue
             
-            # Consentimiento (puede estar en la URL o como modal superpuesto)
+            # Consentimiento EU / Captchas
             try:
-                btn = page.get_by_role("button").filter(has_text=re.compile(r'reject all|accept all|aceptar todo|rechazar todo', re.IGNORECASE)).first
+                # Buscar botones de "Aceptar" en varios idiomas
+                btn = page.locator('button, [role="button"]').filter(has_text=re.compile(r'accept|aceptar|akzeptieren|accepter|accetta|agree', re.IGNORECASE)).first
                 if await btn.count() > 0:
+                    print("[LOG] 🛡️ Resolviendo pantalla de consentimiento/cookies...")
+                    sys.stdout.flush()
                     await btn.click(force=True)
+                    # Esperar a que la redirección a Maps termine si estábamos en consent.google.com
+                    await page.wait_for_load_state("domcontentloaded", timeout=10000)
                     await human_delay(page, 2000, 4000)
             except: pass
             
@@ -246,7 +251,10 @@ async def main():
                 # wait for selector but state='attached' in case they are slightly covered
                 await page.wait_for_selector('a[href*="/maps/place/"]', timeout=15000, state='attached')
             except:
+                curr_url = page.url
+                curr_title = await page.title()
                 print(f"[LOG] ⚠️ No se encontraron resultados (tiempo de espera agotado) para: {q}")
+                print(f"[LOG] ⚠️ URL actual: {curr_url} | Título: {curr_title}")
                 sys.stdout.flush()
                 continue
             

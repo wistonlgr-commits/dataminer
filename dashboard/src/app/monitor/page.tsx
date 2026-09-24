@@ -1,9 +1,42 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
-import { Terminal, StopCircle, CheckCircle, FileText, Download, AlertTriangle, Table as TableIcon, Star, X } from "lucide-react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { Terminal, StopCircle, CheckCircle, FileText, Download, AlertTriangle, Table as TableIcon, Star, X, Trash2, AlertCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+
+// Custom Confirm Modal Component (replaces browser confirm())
+function ConfirmModal({ open, title, message, onConfirm, onCancel }: {
+  open: boolean; title: string; message: string; onConfirm: () => void; onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-6 h-6 text-red-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">{message}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-3 px-6 pb-6 justify-end">
+          <button onClick={onCancel} className="px-5 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+            Cancelar
+          </button>
+          <button onClick={onConfirm} className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm">
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function MonitorContent() {
   const searchParams = useSearchParams();
@@ -18,6 +51,12 @@ function MonitorContent() {
   const [activeTab, setActiveTab] = useState<"terminal" | "resultados">("terminal");
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [selectedRow, setSelectedRow] = useState<any>(null);
+
+  // Custom confirm modal state
+  const [confirmModal, setConfirmModal] = useState<{ open: boolean; title: string; message: string; onConfirm: () => void }>({
+    open: false, title: "", message: "", onConfirm: () => {}
+  });
+  const closeModal = useCallback(() => setConfirmModal(prev => ({ ...prev, open: false })), []);
 
   useEffect(() => {
     if (!jobId) return;
@@ -54,15 +93,22 @@ function MonitorContent() {
     }
   }, [status, jobId]);
 
-  const handleCancel = async () => {
-    if (!confirm("¿Seguro que deseas pausar y cancelar esta búsqueda?")) return;
-    setStatus("canceling");
-    await fetch('/api/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobId })
+  const handleCancel = () => {
+    setConfirmModal({
+      open: true,
+      title: "Detener búsqueda",
+      message: "¿Seguro que deseas pausar y cancelar esta búsqueda? Esta acción no se puede deshacer.",
+      onConfirm: async () => {
+        closeModal();
+        setStatus("canceling");
+        await fetch('/api/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jobId })
+        });
+        setStatus("error");
+      }
     });
-    setStatus("error");
   };
 
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
@@ -77,37 +123,47 @@ function MonitorContent() {
     }
   }, [jobId]);
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDelete = (e: React.MouseEvent, id: string) => {
     e.preventDefault(); 
-    if (!confirm("¿Seguro que deseas borrar esta búsqueda y su Excel asociado?")) return;
-    
-    await fetch('/api/jobs/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: [id] })
-    });
-    
-    setRecentJobs(recentJobs.filter(job => job.id !== id));
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
+    setConfirmModal({
+      open: true,
+      title: "Eliminar búsqueda",
+      message: "¿Seguro que deseas borrar esta búsqueda y su Excel asociado? Los datos se perderán permanentemente.",
+      onConfirm: async () => {
+        closeModal();
+        await fetch('/api/jobs/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [id] })
+        });
+        setRecentJobs(prev => prev.filter(job => job.id !== id));
+        setSelectedIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
     });
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`¿Seguro que deseas borrar las ${selectedIds.size} búsquedas seleccionadas y sus archivos Excel?`)) return;
-
-    const idsToDelete = Array.from(selectedIds);
-    await fetch('/api/jobs/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: idsToDelete })
+    setConfirmModal({
+      open: true,
+      title: "Eliminar seleccionados",
+      message: `¿Seguro que deseas borrar las ${selectedIds.size} búsquedas seleccionadas y sus archivos Excel? Esta acción es irreversible.`,
+      onConfirm: async () => {
+        closeModal();
+        const idsToDelete = Array.from(selectedIds);
+        await fetch('/api/jobs/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: idsToDelete })
+        });
+        setRecentJobs(prev => prev.filter(job => !selectedIds.has(job.id)));
+        setSelectedIds(new Set());
+      }
     });
-
-    setRecentJobs(recentJobs.filter(job => !selectedIds.has(job.id)));
-    setSelectedIds(new Set());
   };
 
   const toggleSelectAll = () => {
@@ -134,6 +190,7 @@ function MonitorContent() {
 
     return (
       <div className="max-w-5xl">
+        <ConfirmModal open={confirmModal.open} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={closeModal} />
         <div className="flex justify-between items-end mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Historial de Búsquedas</h1>
@@ -171,10 +228,10 @@ function MonitorContent() {
               <a 
                 key={job.id} 
                 href={`/monitor?id=${encodeURIComponent(job.id)}&q=${encodeURIComponent(job.query)}`}
-                className={`flex items-center justify-between p-6 bg-white rounded-xl border transition-all group relative ${selectedIds.has(job.id) ? 'border-indigo-500 shadow-sm ring-1 ring-indigo-500' : 'border-gray-200 hover:border-indigo-400 hover:shadow-md'}`}
+                className={`flex flex-col md:flex-row md:items-center justify-between p-4 md:p-6 gap-4 bg-white rounded-xl border transition-all group relative ${selectedIds.has(job.id) ? 'border-indigo-500 shadow-sm ring-1 ring-indigo-500' : 'border-gray-200 hover:border-indigo-400 hover:shadow-md'}`}
               >
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center h-full" onClick={(e) => toggleSelect(e, job.id)}>
+                <div className="flex items-start md:items-center gap-4 md:gap-6 w-full">
+                  <div className="flex items-center pt-1 md:pt-0" onClick={(e) => toggleSelect(e, job.id)}>
                     <input 
                       type="checkbox" 
                       checked={selectedIds.has(job.id)}
@@ -182,25 +239,25 @@ function MonitorContent() {
                       className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     />
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1" title={job.query}>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg md:text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-2 md:line-clamp-1 break-words" title={job.query}>
                       {job.query.length > 80 ? job.query.substring(0, 80) + '... (Lote)' : job.query}
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-3">
-                      <span>{job.found} negocios extraídos</span>
-                      <span>•</span>
-                      <span>{job.progress}% completado</span>
+                    <p className="text-xs md:text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-1.5 md:gap-3">
+                      <span>{job.found} extraídos</span>
+                      <span className="hidden md:inline">•</span>
+                      <span className="bg-slate-100 md:bg-transparent px-2 py-0.5 md:p-0 rounded-md">{job.progress}%</span>
                       {job.updatedAt && (
                         <>
-                          <span>•</span>
-                          <span>Hace {Math.max(1, Math.round((Date.now() - new Date(job.updatedAt).getTime()) / 60000))} min</span>
+                          <span className="hidden md:inline">•</span>
+                          <span className="text-slate-400">Hace {Math.max(1, Math.round((Date.now() - new Date(job.updatedAt).getTime()) / 60000))} min</span>
                         </>
                       )}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${
+                <div className="flex items-center justify-end gap-2 md:gap-4 pl-9 md:pl-0 w-full md:w-auto mt-2 md:mt-0">
+                  <span className={`px-3 py-1 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap ${
                     job.status === 'completed' ? 'bg-green-100 text-green-700' :
                     job.status === 'running' ? 'bg-indigo-100 text-indigo-700 animate-pulse' :
                     'bg-red-100 text-red-700'
@@ -212,7 +269,7 @@ function MonitorContent() {
                     <Link
                       href={`/api/download?id=${job.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0"
+                      className="p-1.5 md:p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors flex-shrink-0"
                       title="Descargar Excel"
                     >
                       <Download className="w-5 h-5" />
@@ -221,7 +278,7 @@ function MonitorContent() {
 
                   <button 
                     onClick={(e) => handleDelete(e, job.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                    className="p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                     title="Borrar del historial"
                   >
                     <X className="w-5 h-5" />
@@ -240,7 +297,7 @@ function MonitorContent() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      
+      <ConfirmModal open={confirmModal.open} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={closeModal} />
       {/* Breadcrumbs */}
       <nav className="text-sm text-gray-500 mb-6 flex items-center gap-2">
         <Link href="/monitor" className="hover:text-indigo-600 transition-colors">Historial</Link>

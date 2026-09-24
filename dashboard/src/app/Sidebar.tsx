@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, PlaySquare, Activity, Database } from "lucide-react";
+import { LayoutDashboard, PlaySquare, Activity, Database, Rocket } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function Sidebar() {
@@ -29,6 +29,7 @@ export function Sidebar() {
     { name: "Resumen", href: "/", icon: LayoutDashboard },
     { name: "Nueva Búsqueda", href: "/jobs", icon: PlaySquare },
     { name: "Monitorización", href: "/monitor", icon: Activity, badge: activeJobs },
+    { name: "Presentación", href: "/pitch", icon: Rocket },
   ];
 
   return (

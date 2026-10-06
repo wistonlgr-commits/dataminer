@@ -45,6 +45,12 @@ LAUNCH_ARGS = [
     "--no-sandbox",
     "--disable-dev-shm-usage",  # evita crashes por /dev/shm pequeño en Docker
     "--lang=en-US",
+    # Servidores Linux no tienen GPU: forzar WebGL por software (Maps lo necesita
+    # para dibujarse; Chrome 137+ ya no hace este fallback automáticamente)
+    "--use-angle=swiftshader",
+    "--use-gl=angle",
+    "--enable-unsafe-swiftshader",
+    "--ignore-gpu-blocklist",
 ]
 
 # Cookies de consentimiento de Google: evitan la pantalla consent.google.com
@@ -58,12 +64,66 @@ for _dom in [".google.com"]:
 
 RESULT_SELECTOR = 'a[href*="/maps/place/"], a.hfpxzc'
 
+# UA real del navegador (sin "HeadlessChrome"): así versión y plataforma (Linux/Windows)
+# coinciden con navigator.platform y los client hints. Un UA de Windows en Linux delata al bot.
+REAL_UA = None
+
+async def launch_browser(p):
+    """Lanza Chromium (modo headless nuevo si está disponible) y calcula un UA coherente."""
+    global REAL_UA
+    browser = None
+    for kw in (dict(channel="chromium"), dict()):
+        try:
+            browser = await p.chromium.launch(headless=True, args=LAUNCH_ARGS, **kw)
+            break
+        except Exception as e:
+            print(f"[LOG] ⚠️ No se pudo lanzar Chromium con {kw or 'modo por defecto'}: {str(e)[:150]}")
+    if browser is None:
+        raise RuntimeError("No se pudo lanzar Chromium")
+    try:
+        tmp = await browser.new_page()
+        REAL_UA = (await tmp.evaluate("navigator.userAgent")).replace("HeadlessChrome", "Chrome")
+        await tmp.close()
+    except Exception:
+        REAL_UA = None
+    print(f"[LOG] 🌐 Navegador: {browser.version} | UA: {REAL_UA}")
+    sys.stdout.flush()
+    return browser
+
+def attach_diagnostics(page):
+    """Registra en el terminal crashes del renderer, errores JS y respuestas HTTP de error de Google."""
+    seen = set()
+    def _crash(_):
+        print("[LOG] 💥 La pestaña del navegador se cayó (crash del renderer, posible falta de memoria/shm)")
+        sys.stdout.flush()
+    def _response(r):
+        try:
+            if r.status >= 400 and "google" in r.url:
+                key = (r.status, r.url.split('?')[0][:80])
+                if key not in seen and len(seen) < 5:
+                    seen.add(key)
+                    print(f"[LOG] 🌐 HTTP {r.status} en {key[1]}")
+                    sys.stdout.flush()
+        except Exception:
+            pass
+    def _console(m):
+        try:
+            if m.type == "error" and len(seen) < 8:
+                seen.add(("console", m.text[:60]))
+                print(f"[LOG] 🧩 Error JS: {m.text[:160]}")
+                sys.stdout.flush()
+        except Exception:
+            pass
+    page.on("crash", _crash)
+    page.on("response", _response)
+    page.on("console", _console)
+
 async def new_context(browser):
     """Crea un contexto con identidad aleatoria, cookies de consentimiento y webdriver oculto."""
     ctx = await browser.new_context(
         locale="en-US",
         viewport=random.choice(VIEWPORTS),
-        user_agent=random.choice(USER_AGENTS),
+        user_agent=REAL_UA or random.choice(USER_AGENTS),
         timezone_id="America/New_York",
         extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
     )
@@ -74,6 +134,7 @@ async def new_context(browser):
     await ctx.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
     page = await ctx.new_page()
     await stealth_async(page)
+    attach_diagnostics(page)
     return ctx, page
 
 async def accept_consent(page):
@@ -113,6 +174,17 @@ async def dump_page_state(page, q):
         print(f"[LOG] 🔎 Texto visible: {body or '(vacío)'}")
     except Exception:
         pass
+    try:
+        info = await page.evaluate("""() => {
+            const c = document.createElement('canvas');
+            const gl = !!(c.getContext('webgl') || c.getContext('experimental-webgl'));
+            return {html: document.documentElement.outerHTML.length, scripts: document.scripts.length,
+                    webgl: gl, platform: navigator.platform, webdriver: navigator.webdriver,
+                    ready: document.readyState};
+        }""")
+        print(f"[LOG] 🔬 Diagnóstico: {info}")
+    except Exception as e:
+        print(f"[LOG] 🔬 Diagnóstico falló: {type(e).__name__}: {str(e)[:120]}")
     try:
         debug_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".jobs")
         os.makedirs(debug_dir, exist_ok=True)
@@ -494,7 +566,7 @@ async def main():
     MAX_SCROLLS = {1: 8, 2: 20, 3: 40}.get(precision, 20)
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, args=LAUNCH_ARGS)
+        browser = await launch_browser(p)
         context, page = await new_context(browser)
         
         all_resultados = []

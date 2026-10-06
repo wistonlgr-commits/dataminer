@@ -64,11 +64,11 @@ export async function POST(req: NextRequest) {
           currentState.found = parseInt(t.replace("[FOUND]", "").trim());
         } else if (t.startsWith("[LOG]")) {
           currentState.logs.push(`[${new Date().toLocaleTimeString()}] ${t.replace("[LOG]", "").trim()}`);
-          if (currentState.logs.length > 15) currentState.logs.shift();
+          if (currentState.logs.length > 60) currentState.logs.shift();
         } else {
            // Other prints
            currentState.logs.push(`[${new Date().toLocaleTimeString()}] ${t}`);
-           if (currentState.logs.length > 15) currentState.logs.shift();
+           if (currentState.logs.length > 60) currentState.logs.shift();
         }
       });
       fs.writeFileSync(jobFile, JSON.stringify(currentState));
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
       const currentState = JSON.parse(fs.readFileSync(jobFile, 'utf8'));
       currentState.status = code === 0 ? "completed" : "error";
       if (code === 0) currentState.progress = 100;
-      currentState.logs.push(`[${new Date().toLocaleTimeString()}] Finalizado con código ${code}`);
+      currentState.logs.push(`[${new Date().toLocaleTimeString()}] Finalizado con cÃ³digo ${code}`);
       fs.writeFileSync(jobFile, JSON.stringify(currentState));
     });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { Terminal, StopCircle, CheckCircle, FileText, Download, AlertTriangle, Table as TableIcon, Star, X, Trash2, AlertCircle } from "lucide-react";
+import { Terminal, StopCircle, CheckCircle, FileText, Download, AlertTriangle, Table as TableIcon, Star, X, Trash2, AlertCircle, MessageCircle, ExternalLink, Sparkles } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -403,43 +403,147 @@ function MonitorContent() {
             {activeTab === "resultados" && (
               <div className="absolute inset-0 overflow-auto">
                 <table className="w-full text-sm text-left whitespace-nowrap">
-                  <thead className="text-xs text-slate-700 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm">
+                  <thead className="text-xs text-slate-700 uppercase bg-slate-50 sticky top-0 z-10 shadow-sm border-b border-slate-200">
                     <tr>
-                      <th className="px-6 py-3 font-semibold">Negocio</th>
-                      <th className="px-6 py-3 font-semibold">Ciudad</th>
-                      <th className="px-6 py-3 font-semibold">Teléfono</th>
-                      <th className="px-6 py-3 font-semibold">Calificación</th>
-                      <th className="px-6 py-3 font-semibold text-center">Acciones</th>
+                      <th className="px-5 py-3 font-semibold text-center">Score</th>
+                      <th className="px-5 py-3 font-semibold">Negocio</th>
+                      <th className="px-5 py-3 font-semibold">Contacto Directo</th>
+                      <th className="px-5 py-3 font-semibold">Presencia Digital</th>
+                      <th className="px-5 py-3 font-semibold">Calificación</th>
+                      <th className="px-5 py-3 font-semibold text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {previewData.map((row, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-slate-900">{row["Nombre"]}</div>
-                          <div className="text-xs text-slate-500">{row["Categoria"]}</div>
-                        </td>
-                        <td className="px-6 py-4 text-slate-700">{row["Ciudad"] || "-"}</td>
-                        <td className="px-6 py-4 text-slate-700">{row["Telefono"] || "-"}</td>
-                        <td className="px-6 py-4">
-                          {row["Calificacion"] ? (
-                            <div className="flex items-center text-amber-600 font-medium">
-                              <Star className="w-4 h-4 mr-1 fill-amber-500" /> {row["Calificacion"]} ({row["Total_Resenas"]})
+                    {previewData.map((row, i) => {
+                      const score = Number(row["Lead_Score"] || 0);
+                      const isGold = (row["Prioridad"] || "").includes("Oro") || score >= 70;
+                      const isSilver = (row["Prioridad"] || "").includes("Plata") || (score >= 45 && score < 70);
+
+                      return (
+                        <tr key={i} className="hover:bg-slate-50/80 transition-colors">
+                          {/* Score Badge */}
+                          <td className="px-5 py-3.5 text-center">
+                            {row["Lead_Score"] !== undefined ? (
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black border ${
+                                isGold 
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-sm' 
+                                  : isSilver 
+                                  ? 'bg-blue-100 text-blue-900 border-blue-300' 
+                                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                              }`}>
+                                {isGold ? '🔥 ' : isSilver ? '⭐ ' : '⚡ '}
+                                {score} pts
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+
+                          {/* Negocio */}
+                          <td className="px-5 py-3.5">
+                            <div className="font-bold text-slate-900 text-sm max-w-xs truncate" title={row["Nombre"]}>
+                              {row["Nombre"]}
                             </div>
-                          ) : (
-                            <span className="text-slate-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button 
-                            onClick={() => setSelectedRow(row)}
-                            className="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-3 py-1.5 rounded-md transition-colors"
-                          >
-                            Ver Detalles
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                              <span>{row["Categoria"] || "Negocio"}</span>
+                              {row["Ciudad"] && <span>• {row["Ciudad"]}</span>}
+                            </div>
+                          </td>
+
+                          {/* Contacto Directo (WhatsApp / Teléfono / Email) */}
+                          <td className="px-5 py-3.5">
+                            <div className="flex flex-col gap-1 items-start">
+                              {row["WhatsApp_Link"] ? (
+                                <a 
+                                  href={row["WhatsApp_Link"]} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-md border border-emerald-200 transition-colors shadow-2xs"
+                                  title="Abrir chat en WhatsApp"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5 text-emerald-600 fill-emerald-100" />
+                                  <span>WhatsApp</span>
+                                </a>
+                              ) : null}
+
+                              {row["Telefono"] && (
+                                <span className="text-xs text-slate-700 font-medium font-mono">
+                                  {row["Telefono"]}
+                                </span>
+                              )}
+
+                              {row["Email"] && (
+                                <span className="text-xs text-slate-500 truncate max-w-[150px]" title={row["Email"]}>
+                                  ✉️ {row["Email"]}
+                                </span>
+                              )}
+
+                              {!row["Telefono"] && !row["WhatsApp_Link"] && !row["Email"] && (
+                                <span className="text-xs text-slate-400 italic">Sin datos directos</span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Presencia Digital (Oportunidad Web / Redes) */}
+                          <td className="px-5 py-3.5">
+                            <div className="flex flex-wrap gap-1.5 max-w-[180px]">
+                              {row["Sitio_Web"] ? (
+                                <a 
+                                  href={row["Sitio_Web"].startsWith('http') ? row["Sitio_Web"] : `https://${row["Sitio_Web"]}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 hover:bg-blue-100"
+                                >
+                                  Web <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              ) : (
+                                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200" title="Oportunidad: No tiene sitio web propio">
+                                  ⚠️ Sin Web
+                                </span>
+                              )}
+
+                              {row["Instagram"] ? (
+                                <a 
+                                  href={row["Instagram"].startsWith('http') ? row["Instagram"] : `https://${row["Instagram"]}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-pink-700 bg-pink-50 px-2 py-0.5 rounded border border-pink-200 hover:bg-pink-100"
+                                >
+                                  Instagram <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              ) : (
+                                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200" title="Oportunidad: No cuenta con Instagram">
+                                  ⚠️ Sin IG
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Calificación y Reseñas */}
+                          <td className="px-5 py-3.5">
+                            {row["Calificacion"] ? (
+                              <div className="flex items-center text-amber-700 font-bold text-xs">
+                                <Star className="w-3.5 h-3.5 mr-1 fill-amber-500 text-amber-500" /> 
+                                <span>{row["Calificacion"]}</span>
+                                <span className="text-slate-400 font-normal ml-1">({row["Total_Resenas"] || 0})</span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 text-xs">Sin reseñas</span>
+                            )}
+                          </td>
+
+                          {/* Acciones */}
+                          <td className="px-5 py-3.5 text-center">
+                            <button 
+                              onClick={() => setSelectedRow(row)}
+                              className="text-indigo-600 hover:text-indigo-800 font-semibold text-xs bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition-colors shadow-2xs"
+                            >
+                              Ver Diagnóstico
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -450,90 +554,195 @@ function MonitorContent() {
 
       {/* Modal Detalles */}
       {selectedRow && (
-        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-            <div className="p-6 border-b border-slate-200 flex justify-between items-start">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+            {/* Header Modal */}
+            <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-start">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">{selectedRow["Nombre"]}</h2>
-                <p className="text-slate-500 mt-1">{selectedRow["Categoria"]} • {selectedRow["Ciudad"]}, {selectedRow["Estado"]}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-2xl font-black text-slate-900">{selectedRow["Nombre"]}</h2>
+                  {selectedRow["Lead_Score"] !== undefined && (
+                    <span className="px-2.5 py-0.5 text-xs font-black rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      Score: {selectedRow["Lead_Score"]} pts
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-500 text-sm">
+                  {selectedRow["Categoria"]} • {selectedRow["Ciudad"] || "Ciudad no especificada"}{selectedRow["Estado"] ? `, ${selectedRow["Estado"]}` : ""}
+                </p>
               </div>
-              <button onClick={() => setSelectedRow(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg">
+              <button onClick={() => setSelectedRow(null)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
             
             <div className="p-6 overflow-y-auto space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="block text-xs text-slate-500 uppercase font-semibold">Teléfono</span>
-                  <span className="font-medium">{selectedRow["Telefono"] || "-"}</span>
+              {/* Tarjeta Diagnóstico Vission Solutions */}
+              {selectedRow["Razon_Oportunidad"] && (
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 p-5 rounded-2xl shadow-2xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-600" />
+                      Diagnóstico Comercial (Vission Solutions)
+                    </span>
+                    <span className="text-xs font-bold px-2 py-0.5 bg-amber-200/60 text-amber-900 rounded-md">
+                      Prioridad: {selectedRow["Prioridad"] || "Estándar"}
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-800 leading-relaxed">
+                    {selectedRow["Razon_Oportunidad"]}
+                  </p>
+
+                  {selectedRow["WhatsApp_Link"] && (
+                    <div className="mt-4 pt-3 border-t border-amber-200/70 flex items-center justify-between">
+                      <span className="text-xs text-slate-600">¿Listo para hacer contacto?</span>
+                      <a 
+                        href={selectedRow["WhatsApp_Link"]} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        Abrir Chat de WhatsApp
+                      </a>
+                    </div>
+                  )}
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="block text-xs text-slate-500 uppercase font-semibold">Email</span>
-                  <span className="font-medium truncate block" title={selectedRow["Email"]}>{selectedRow["Email"] || "-"}</span>
+              )}
+
+              {/* Canales y Datos de Contacto */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <span className="block text-xs text-slate-500 uppercase font-semibold mb-1">Teléfono</span>
+                  <span className="font-bold text-sm text-slate-900">{selectedRow["Telefono"] || "-"}</span>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="block text-xs text-slate-500 uppercase font-semibold">Horario</span>
-                  <span className="font-medium text-sm">{selectedRow["Horario_Apertura"] ? `${selectedRow["Horario_Apertura"]} - ${selectedRow["Horario_Cierre"]}` : "-"}</span>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <span className="block text-xs text-slate-500 uppercase font-semibold mb-1">WhatsApp</span>
+                  {selectedRow["WhatsApp_Link"] ? (
+                    <a 
+                      href={selectedRow["WhatsApp_Link"]} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="font-bold text-sm text-emerald-600 hover:underline flex items-center gap-1"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" /> Abrir Link
+                    </a>
+                  ) : (
+                    <span className="font-medium text-sm text-slate-400">-</span>
+                  )}
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="block text-xs text-slate-500 uppercase font-semibold">Días</span>
-                  <span className="font-medium text-sm">{selectedRow["Dias_Abierto"] || "-"}</span>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <span className="block text-xs text-slate-500 uppercase font-semibold mb-1">Instagram</span>
+                  {selectedRow["Instagram"] ? (
+                    <a 
+                      href={selectedRow["Instagram"].startsWith('http') ? selectedRow["Instagram"] : `https://${selectedRow["Instagram"]}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="font-bold text-sm text-pink-600 hover:underline truncate block"
+                      title={selectedRow["Instagram"]}
+                    >
+                      Ver Perfil
+                    </a>
+                  ) : (
+                    <span className="font-bold text-xs text-amber-700">Sin Instagram</span>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <span className="block text-xs text-slate-500 uppercase font-semibold mb-1">Sitio Web</span>
+                  {selectedRow["Sitio_Web"] ? (
+                    <a 
+                      href={selectedRow["Sitio_Web"].startsWith('http') ? selectedRow["Sitio_Web"] : `https://${selectedRow["Sitio_Web"]}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="font-bold text-sm text-blue-600 hover:underline truncate block"
+                      title={selectedRow["Sitio_Web"]}
+                    >
+                      Visitar Web
+                    </a>
+                  ) : (
+                    <span className="font-bold text-xs text-amber-700">Sin Sitio Web</span>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 col-span-2">
+                  <span className="block text-xs text-slate-500 uppercase font-semibold mb-1">Email</span>
+                  <span className="font-medium text-sm text-slate-800 truncate block" title={selectedRow["Email"]}>
+                    {selectedRow["Email"] || "No detectado"}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <span className="block text-xs text-slate-500 uppercase font-semibold mb-1">Horario</span>
+                  <span className="font-medium text-xs text-slate-800">
+                    {selectedRow["Horario_Apertura"] ? `${selectedRow["Horario_Apertura"]} - ${selectedRow["Horario_Cierre"]}` : "-"}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                  <span className="block text-xs text-slate-500 uppercase font-semibold mb-1">Días Abierto</span>
+                  <span className="font-medium text-xs text-slate-800">{selectedRow["Dias_Abierto"] || "-"}</span>
                 </div>
               </div>
 
-              {/* Reseñas (Fase 2) */}
+              {/* Dirección y Maps Link */}
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <span className="block text-xs text-slate-500 uppercase font-semibold">Dirección</span>
+                  <span className="text-xs text-slate-800">{selectedRow["Direccion_Completa"] || "-"}</span>
+                </div>
+                {selectedRow["URL_Google_Maps"] && (
+                  <a 
+                    href={selectedRow["URL_Google_Maps"]} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-indigo-600 hover:underline inline-flex items-center gap-1 shrink-0 ml-4"
+                  >
+                    Google Maps <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+
+              {/* Reseñas Destacadas */}
               <div>
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center border-b pb-2">
-                  <Star className="w-5 h-5 mr-2 text-amber-500 fill-amber-500" /> 
+                <h3 className="text-base font-bold text-slate-800 mb-3 flex items-center border-b pb-2">
+                  <Star className="w-4 h-4 mr-1.5 text-amber-500 fill-amber-500" /> 
                   Reseñas Destacadas
                 </h3>
                 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {selectedRow["Resena_Positiva_Texto"] && (
-                    <div className="bg-green-50 border border-green-200 p-4 rounded-xl">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold text-green-900">{selectedRow["Resena_Positiva_Autor"]}</span>
-                        <div className="flex text-green-600">
+                    <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="font-bold text-xs text-emerald-900">{selectedRow["Resena_Positiva_Autor"] || "Cliente"}</span>
+                        <div className="flex text-emerald-600">
                           {Array.from({length: Math.floor(Number(selectedRow["Resena_Positiva_Estrellas"] || 5))}).map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-current" />
+                            <Star key={i} className="w-3.5 h-3.5 fill-current" />
                           ))}
                         </div>
                       </div>
-                      <p className="text-sm text-green-800 italic">"{selectedRow["Resena_Positiva_Texto"]}"</p>
+                      <p className="text-xs text-emerald-950 italic">"{selectedRow["Resena_Positiva_Texto"]}"</p>
                     </div>
                   )}
 
                   {selectedRow["Resena_Negativa_1_Texto"] && (
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold text-red-900">{selectedRow["Resena_Negativa_1_Autor"]}</span>
-                        <div className="flex text-red-600">
+                    <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="font-bold text-xs text-rose-900">{selectedRow["Resena_Negativa_1_Autor"] || "Cliente"}</span>
+                        <div className="flex text-rose-600">
                           {Array.from({length: Math.floor(Number(selectedRow["Resena_Negativa_1_Estrellas"] || 1))}).map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-current" />
+                            <Star key={i} className="w-3.5 h-3.5 fill-current" />
                           ))}
                         </div>
                       </div>
-                      <p className="text-sm text-red-800 italic">"{selectedRow["Resena_Negativa_1_Texto"]}"</p>
-                    </div>
-                  )}
-                  
-                  {selectedRow["Resena_Negativa_2_Texto"] && (
-                    <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold text-red-900">{selectedRow["Resena_Negativa_2_Autor"]}</span>
-                        <div className="flex text-red-600">
-                          {Array.from({length: Math.floor(Number(selectedRow["Resena_Negativa_2_Estrellas"] || 1))}).map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-current" />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-red-800 italic">"{selectedRow["Resena_Negativa_2_Texto"]}"</p>
+                      <p className="text-xs text-rose-950 italic">"{selectedRow["Resena_Negativa_1_Texto"]}"</p>
                     </div>
                   )}
 
                   {!selectedRow["Resena_Positiva_Texto"] && !selectedRow["Resena_Negativa_1_Texto"] && (
-                    <p className="text-sm text-slate-500 italic">No se encontraron reseñas o no se extrajeron.</p>
+                    <p className="text-xs text-slate-400 italic">No se extrajeron reseñas específicas para este negocio.</p>
                   )}
                 </div>
               </div>

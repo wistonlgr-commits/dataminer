@@ -72,9 +72,12 @@ async def launch_browser(p):
     """Lanza Chromium (modo headless nuevo si está disponible) y calcula un UA coherente."""
     global REAL_UA
     browser = None
+    is_linux = sys.platform.startswith('linux')
+    headless_mode = False if is_linux else True
+
     for kw in (dict(channel="chromium"), dict()):
         try:
-            browser = await p.chromium.launch(headless=True, args=LAUNCH_ARGS, **kw)
+            browser = await p.chromium.launch(headless=headless_mode, args=LAUNCH_ARGS, **kw)
             break
         except Exception as e:
             print(f"[LOG] ⚠️ No se pudo lanzar Chromium con {kw or 'modo por defecto'}: {str(e)[:150]}")

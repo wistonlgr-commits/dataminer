@@ -395,8 +395,7 @@ async def main():
                     print("[LOG] 🛡️ Resolviendo pantalla de consentimiento/cookies...")
                     sys.stdout.flush()
                     try:
-                        async with page.expect_navigation(timeout=10000):
-                            await btn.click(force=True)
+                        await btn.click(force=True)
                     except:
                         pass
                     await human_delay(page, 2000, 4000)
@@ -406,27 +405,34 @@ async def main():
                 if "/maps/place/" in page.url:
                     pass
                 else:
-                    await page.wait_for_selector('a[href*="/maps/place/"]', timeout=30000, state='attached')
+                    await page.wait_for_selector('a[href*="/maps/place/"], a.hfpxzc', timeout=25000, state='attached')
             except Exception as e:
-                curr_url = page.url
-                curr_title = await page.title()
-                print(f"[LOG] ⚠️ No se encontraron resultados (tiempo de espera agotado) para: {q}")
-                print(f"[LOG] ⚠️ URL actual: {curr_url} | Título: {curr_title}")
-                print(f"[LOG] ⚠️ Error details: {type(e).__name__}: {str(e)}")
-                try:
-                    debug_path = os.path.join(os.path.dirname(__file__), "..", "dashboard", "public", "debug.png")
-                    await page.screenshot(path=debug_path, full_page=True)
-                    print(f"[LOG] 📸 Captura de pantalla guardada para depuración: /debug.png")
-                except Exception as ex:
-                    print(f"[LOG] ❌ Error guardando captura: {ex}")
+                print(f"[LOG] ⚠️ Tiempo de espera agotado. Refrescando la página para reintentar...")
                 sys.stdout.flush()
-                continue
+                try:
+                    await page.reload(timeout=30000, wait_until="domcontentloaded")
+                    await human_delay(page, 3000, 5000)
+                    await page.wait_for_selector('a[href*="/maps/place/"], a.hfpxzc', timeout=25000, state='attached')
+                except Exception as e2:
+                    curr_url = page.url
+                    curr_title = await page.title()
+                    print(f"[LOG] ⚠️ No se encontraron resultados tras recargar para: {q}")
+                    print(f"[LOG] ⚠️ URL actual: {curr_url} | Título: {curr_title}")
+                    print(f"[LOG] ⚠️ Error details: {type(e2).__name__}: {str(e2)}")
+                    try:
+                        debug_path = os.path.join(os.path.dirname(__file__), "..", "dashboard", "public", "debug.png")
+                        await page.screenshot(path=debug_path, full_page=True)
+                        print(f"[LOG] 📸 Captura de pantalla guardada para depuración: /debug.png")
+                    except Exception as ex:
+                        print(f"[LOG] ❌ Error guardando captura: {ex}")
+                    sys.stdout.flush()
+                    continue
             
             print("[LOG] Scroll profundo en la lista de resultados...")
             sys.stdout.flush()
             
             try:
-                feed = page.locator('div[role="feed"]')
+                feed = page.locator('div[role="feed"], div.m6QErb[aria-label]')
                 if await feed.count() > 0:
                     await feed.hover()
             except:

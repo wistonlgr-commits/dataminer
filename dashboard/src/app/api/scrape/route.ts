@@ -46,17 +46,7 @@ export async function POST(req: NextRequest) {
       pid: 0
     };
 
-    let cmd = pythonExec;
-    let args = [scriptPath, query, String(precision), jobId];
-
-    if (!isWindows) {
-      // En Linux (Docker) usamos xvfb-run para simular un monitor
-      // y así poder ejecutar Chrome con headless=False (evita bloqueos de Google)
-      args = ["-a", pythonExec, scriptPath, query, String(precision), jobId];
-      cmd = "xvfb-run";
-    }
-
-    const child = spawn(cmd, args, { cwd: backendDir });
+    const child = spawn(pythonExec, [scriptPath, query, String(precision), jobId], { cwd: backendDir });
     jobState.pid = child.pid || 0;
     fs.writeFileSync(jobFile, JSON.stringify(jobState));
 

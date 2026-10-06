@@ -71,13 +71,18 @@ REAL_UA = None
 async def launch_browser(p):
     """Lanza Chromium (modo headless nuevo si está disponible) y calcula un UA coherente."""
     global REAL_UA
-    browser = None
     is_linux = sys.platform.startswith('linux')
     headless_mode = False if is_linux else True
+    
+    proxy_url = os.environ.get("PROXY_URL")
 
     for kw in (dict(channel="chromium"), dict()):
         try:
-            browser = await p.chromium.launch(headless=headless_mode, args=LAUNCH_ARGS, **kw)
+            launch_opts = {"headless": headless_mode, "args": LAUNCH_ARGS}
+            if proxy_url:
+                launch_opts["proxy"] = {"server": proxy_url}
+            
+            browser = await p.chromium.launch(**launch_opts, **kw)
             break
         except Exception as e:
             print(f"[LOG] ⚠️ No se pudo lanzar Chromium con {kw or 'modo por defecto'}: {str(e)[:150]}")

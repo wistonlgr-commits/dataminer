@@ -33,13 +33,175 @@ VIEWPORTS = [
     {"width": 1280, "height": 720},
 ]
 
+# Solo UAs de Chrome: el motor es Chromium, un UA de Firefox/Safari delata al bot.
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
 ]
+
+LAUNCH_ARGS = [
+    "--disable-blink-features=AutomationControlled",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",  # evita crashes por /dev/shm pequeño en Docker
+    "--lang=en-US",
+]
+
+# Cookies de consentimiento de Google: evitan la pantalla consent.google.com
+# que aparece en servidores (IPs europeas / datacenter) y rompe la búsqueda.
+CONSENT_COOKIES = []
+for _dom in [".google.com"]:
+    CONSENT_COOKIES += [
+        {"name": "CONSENT", "value": "YES+cb.20240101-00-p0.en+FX+000", "domain": _dom, "path": "/", "secure": True},
+        {"name": "SOCS", "value": "CAESHAgBEhJnd3NfMjAyNDAxMDEtMF9SQzIaAmVuIAEaBgiA_LiuBg", "domain": _dom, "path": "/", "secure": True},
+    ]
+
+RESULT_SELECTOR = 'a[href*="/maps/place/"], a.hfpxzc'
+
+async def new_context(browser):
+    """Crea un contexto con identidad aleatoria, cookies de consentimiento y webdriver oculto."""
+    ctx = await browser.new_context(
+        locale="en-US",
+        viewport=random.choice(VIEWPORTS),
+        user_agent=random.choice(USER_AGENTS),
+        timezone_id="America/New_York",
+        extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+    )
+    try:
+        await ctx.add_cookies(CONSENT_COOKIES)
+    except Exception as e:
+        print(f"[LOG] ⚠️ No se pudieron fijar cookies de consentimiento: {e}")
+    await ctx.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined});")
+    page = await ctx.new_page()
+    await stealth_async(page)
+    return ctx, page
+
+async def accept_consent(page):
+    """Si aun así aparece la pantalla de consentimiento, la acepta y devuelve True."""
+    try:
+        if "consent." not in page.url and await page.locator('form[action*="consent"]').count() == 0:
+            return False
+        print("[LOG] 🛡️ Resolviendo pantalla de consentimiento/cookies...")
+        sys.stdout.flush()
+        btn = page.locator('button, input[type="submit"]').filter(
+            has_text=re.compile(r'^\s*(accept all|aceptar todo|acepto|i agree|alle akzeptieren|tout accepter|accetta tutto)\s*$', re.IGNORECASE)
+        ).first
+        if await btn.count() == 0:
+            btn = page.locator('form[action*="consent"] button').last
+        if await btn.count() > 0:
+            await btn.click()
+            try:
+                await page.wait_for_url(re.compile(r'google\.[a-z.]+/maps'), timeout=15000)
+            except Exception:
+                pass
+            await human_delay(page, 1500, 3000)
+        return True
+    except Exception as e:
+        print(f"[LOG] ⚠️ Error resolviendo consentimiento: {e}")
+        return False
+
+async def dump_page_state(page, q):
+    """Imprime en el terminal del dashboard lo que realmente se ve en la página."""
+    try:
+        title = await page.title()
+    except Exception:
+        title = "?"
+    print(f"[LOG] ⚠️ URL actual: {page.url[:200]} | Título: {title}")
+    try:
+        body = (await page.locator('body').inner_text())[:600]
+        body = re.sub(r'\s+', ' ', body).strip()
+        print(f"[LOG] 🔎 Texto visible: {body or '(vacío)'}")
+    except Exception:
+        pass
+    try:
+        debug_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".jobs")
+        os.makedirs(debug_dir, exist_ok=True)
+        await page.screenshot(path=os.path.join(debug_dir, "debug.png"), full_page=True)
+        with open(os.path.join(debug_dir, "debug.html"), "w", encoding="utf-8") as f:
+            f.write(await page.content())
+        print("[LOG] 📸 Captura y HTML guardados en backend/.jobs/debug.png y debug.html")
+    except Exception as ex:
+        print(f"[LOG] ❌ Error guardando captura: {ex}")
+    sys.stdout.flush()
+
+async def load_search_results(page, q):
+    """
+    Intenta cargar la lista de resultados con varias estrategias.
+    Devuelve 'list' (hay lista), 'place' (resultado único) o None.
+    """
+    safe_query = urllib.parse.quote_plus(q)
+    urls = [
+        f"https://www.google.com/maps/search/{safe_query}?hl=en",
+        f"https://www.google.com/maps/search/{safe_query}/?hl=en&gl=us",
+        f"https://www.google.com/maps?q={safe_query}&hl=en",
+    ]
+    for attempt, url in enumerate(urls):
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        except Exception as e:
+            print(f"[LOG] ⚠️ Error de navegación (intento {attempt+1}): {type(e).__name__}")
+            sys.stdout.flush()
+        await human_delay(page, 2000, 3500)
+
+        if await accept_consent(page):
+            # Tras el consentimiento Google a veces no vuelve a la búsqueda: re-navegar
+            if "/maps/search" not in page.url and "/maps/place" not in page.url:
+                try:
+                    await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                    await human_delay(page, 2000, 3500)
+                except Exception:
+                    pass
+
+        if await is_blocked(page):
+            return "blocked"
+
+        try:
+            await page.wait_for_selector(f'{RESULT_SELECTOR}, div[role="feed"], h1', timeout=20000, state='attached')
+        except Exception:
+            pass
+
+        if await page.locator(RESULT_SELECTOR).count() > 0:
+            return "list"
+        if "/maps/place/" in page.url:
+            return "place"
+        try:
+            no_res = await page.get_by_text(re.compile(r"Google Maps can't find|No results found|no encuentra", re.IGNORECASE)).count()
+            if no_res > 0:
+                print(f"[LOG] ℹ️ Google Maps indica que no hay resultados para: {q}")
+                sys.stdout.flush()
+                return None
+        except Exception:
+            pass
+        print(f"[LOG] ⚠️ Sin lista de resultados (intento {attempt+1}/{len(urls)}). Probando otra estrategia...")
+        sys.stdout.flush()
+        await human_delay(page, 3000, 6000)
+
+    await dump_page_state(page, q)
+    return None
+
+async def scroll_results_feed(page, max_scrolls, progress_cb=None):
+    """Hace scroll directamente sobre el panel de resultados (más fiable que mouse.wheel)."""
+    feed = page.locator('div[role="feed"]').first
+    if await feed.count() == 0:
+        return
+    last_count, stale = 0, 0
+    for i in range(max_scrolls):
+        if progress_cb: progress_cb(i)
+        try:
+            await feed.evaluate("e => e.scrollBy(0, e.scrollHeight)")
+            await human_delay(page, 1200, 2500)
+            count = await page.locator('a[href*="/maps/place/"]').count()
+            end = page.locator('span.HlvSq')
+            if await end.count() > 0 and await end.first.is_visible():
+                break
+            if count == last_count:
+                stale += 1
+                if stale >= 4: break
+            else:
+                stale = 0
+            last_count = count
+        except Exception:
+            pass
 
 async def human_delay(page, min_ms=1500, max_ms=4000):
     """Espera aleatoria para simular comportamiento humano."""
@@ -54,8 +216,7 @@ async def is_blocked(page):
     try:
         body_text = await page.locator('body').inner_text()
         if body_text and any(phrase in body_text.lower() for phrase in [
-            'unusual traffic', 'automated queries', 'captcha',
-            'not a robot', 'blocked', 'please try again',
+            'unusual traffic', 'automated queries', 'not a robot',
             'tráfico inusual', 'no soy un robot'
         ]):
             return True
@@ -333,17 +494,8 @@ async def main():
     MAX_SCROLLS = {1: 8, 2: 20, 3: 40}.get(precision, 20)
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        vp = random.choice(VIEWPORTS)
-        ua = random.choice(USER_AGENTS)
-        context = await browser.new_context(
-            locale="en-US",
-            viewport=vp,
-            user_agent=ua,
-            timezone_id="America/New_York",
-        )
-        page = await context.new_page()
-        await stealth_async(page)
+        browser = await p.chromium.launch(headless=True, args=LAUNCH_ARGS)
+        context, page = await new_context(browser)
         
         all_resultados = []
         
@@ -354,107 +506,44 @@ async def main():
                 sys.stdout.flush()
                 await page.wait_for_timeout(pause * 1000)
             
-            safe_query = urllib.parse.quote_plus(q)
-            search_url = f"https://www.google.com/maps/search/{safe_query}?hl=en"
             print(f"[LOG] Busqueda ({index+1}/{total_queries}): '{q}'...")
             sys.stdout.flush()
             
-            try:
-                await page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-                await human_delay(page, 2500, 5000)
-            except:
-                pass
-            
-            if await is_blocked(page):
+            status = await load_search_results(page, q)
+            if status == "blocked":
                 print("[LOG] 🚫 Bloqueo detectado! Esperando 60s y rotando identidad...")
                 sys.stdout.flush()
                 await page.wait_for_timeout(60000)
-                await page.close()
                 await context.close()
-                vp = random.choice(VIEWPORTS)
-                ua = random.choice(USER_AGENTS)
-                context = await browser.new_context(
-                    locale="en-US", viewport=vp, user_agent=ua,
-                    timezone_id="America/New_York",
-                )
-                page = await context.new_page()
-                await stealth_async(page)
-                try:
-                    await page.goto(search_url, timeout=30000, wait_until="domcontentloaded")
-                    await human_delay(page, 3000, 5000)
-                    if await is_blocked(page):
-                        print("[LOG] ❌ Bloqueo persiste. Saltando este negocio.")
-                        continue
-                except:
-                    continue
-            
-            # Consentimiento EU / Cookies
-            try:
-                btn = page.locator('button, [role="button"]').filter(has_text=re.compile(r'accept|aceptar|akzeptieren|accepter|accetta|agree', re.IGNORECASE)).first
-                if await btn.count() > 0:
-                    print("[LOG] 🛡️ Resolviendo pantalla de consentimiento/cookies...")
+                context, page = await new_context(browser)
+                status = await load_search_results(page, q)
+                if status == "blocked":
+                    print("[LOG] ❌ Bloqueo persiste (la IP del servidor está marcada por Google). Saltando esta búsqueda.")
                     sys.stdout.flush()
-                    try:
-                        await btn.click(force=True)
-                    except:
-                        pass
-                    await human_delay(page, 2000, 4000)
-            except: pass
-            
-            try: 
-                if "/maps/place/" in page.url:
-                    pass
-                else:
-                    await page.wait_for_selector('a[href*="/maps/place/"], a.hfpxzc', timeout=25000, state='attached')
-            except Exception as e:
-                print(f"[LOG] ⚠️ Tiempo de espera agotado. Refrescando la página para reintentar...")
+                    await dump_page_state(page, q)
+                    continue
+            if status is None:
+                print(f"[LOG] ⚠️ No se encontraron resultados para: {q}")
                 sys.stdout.flush()
-                try:
-                    await page.reload(timeout=30000, wait_until="domcontentloaded")
-                    await human_delay(page, 3000, 5000)
-                    await page.wait_for_selector('a[href*="/maps/place/"], a.hfpxzc', timeout=25000, state='attached')
-                except Exception as e2:
-                    curr_url = page.url
-                    curr_title = await page.title()
-                    print(f"[LOG] ⚠️ No se encontraron resultados tras recargar para: {q}")
-                    print(f"[LOG] ⚠️ URL actual: {curr_url} | Título: {curr_title}")
-                    print(f"[LOG] ⚠️ Error details: {type(e2).__name__}: {str(e2)}")
-                    try:
-                        debug_path = os.path.join(os.path.dirname(__file__), "..", "dashboard", "public", "debug.png")
-                        await page.screenshot(path=debug_path, full_page=True)
-                        print(f"[LOG] 📸 Captura de pantalla guardada para depuración: /debug.png")
-                    except Exception as ex:
-                        print(f"[LOG] ❌ Error guardando captura: {ex}")
-                    sys.stdout.flush()
-                    continue
+                continue
             
-            print("[LOG] Scroll profundo en la lista de resultados...")
-            sys.stdout.flush()
-            
-            try:
-                feed = page.locator('div[role="feed"], div.m6QErb[aria-label]')
-                if await feed.count() > 0:
-                    await feed.hover()
-            except:
-                pass
+            if status == "place":
+                # Google saltó directo a una ficha (resultado único)
+                unique_links = [page.url]
+            else:
+                print("[LOG] Scroll profundo en la lista de resultados...")
+                sys.stdout.flush()
                 
-            for i in range(MAX_SCROLLS):
-                base_pct = int((index / total_queries) * 100)
-                scroll_pct = int((i / MAX_SCROLLS) * (100 / total_queries) * 0.25)
-                print(f"[PROGRESS] {base_pct + scroll_pct}")
-                sys.stdout.flush()
-                try:
-                    for _ in range(random.randint(3, 5)):
-                        delta = random.randint(300, 900)
-                        await page.mouse.wheel(0, delta)
-                        await page.wait_for_timeout(random.randint(200, 500))
-                    await human_delay(page, 1000, 2500)
-                    end = page.locator('span.HlvSq')
-                    if await end.count() > 0 and await end.is_visible(): break
-                except: pass
-
-            links = await page.locator('a[href*="/maps/place/"]').evaluate_all("elements => elements.map(e => e.href)")
-            unique_links = list(dict.fromkeys(links))
+                def _progress(i):
+                    base_pct = int((index / total_queries) * 100)
+                    scroll_pct = int((i / MAX_SCROLLS) * (100 / total_queries) * 0.25)
+                    print(f"[PROGRESS] {base_pct + scroll_pct}")
+                    sys.stdout.flush()
+                
+                await scroll_results_feed(page, MAX_SCROLLS, _progress)
+                
+                links = await page.locator('a[href*="/maps/place/"]').evaluate_all("elements => elements.map(e => e.href)")
+                unique_links = list(dict.fromkeys(links))
             print(f"[LOG] {len(unique_links)} negocios encontrados en '{q}'")
             sys.stdout.flush()
             
@@ -462,18 +551,8 @@ async def main():
                 if j > 0 and j % random.randint(15, 20) == 0:
                     print(f"[LOG] Rotando identidad del navegador...")
                     sys.stdout.flush()
-                    await page.close()
                     await context.close()
-                    vp = random.choice(VIEWPORTS)
-                    ua = random.choice(USER_AGENTS)
-                    context = await browser.new_context(
-                        locale="en-US",
-                        viewport=vp,
-                        user_agent=ua,
-                        timezone_id="America/New_York",
-                    )
-                    page = await context.new_page()
-                    await stealth_async(page)
+                    context, page = await new_context(browser)
                     await human_delay(page, 3000, 6000)
                     
                 pct = int((index / total_queries) * 100) + int(((j+1) / max(len(unique_links),1)) * (100 / total_queries) * 0.75)
@@ -490,16 +569,8 @@ async def main():
                             print("[LOG] ⚠️ Bloqueo detectado! Esperando 60s y rotando identidad...")
                             sys.stdout.flush()
                             await page.wait_for_timeout(60000)
-                            await page.close()
                             await context.close()
-                            vp = random.choice(VIEWPORTS)
-                            ua = random.choice(USER_AGENTS)
-                            context = await browser.new_context(
-                                locale="en-US", viewport=vp, user_agent=ua,
-                                timezone_id="America/New_York",
-                            )
-                            page = await context.new_page()
-                            await stealth_async(page)
+                            context, page = await new_context(browser)
                             continue
                         
                         h1_count = await page.locator('h1').count()
